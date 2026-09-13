@@ -1,0 +1,1033 @@
+# Especificação SDD; não copiar diretamente para .github/workflows/.
+documento:
+  id: SDD-QA-CICD-001
+  titulo: Portfolio Games — SDD de testes e CI/CD com GitHub Flow
+  versao: 1.0.0
+  idioma: pt-BR
+  status: implementação em validação; evidências em docs/status_implementacao.md
+  formato: YAML puro
+  origem:
+    arquivo: analise_requisitos_portfolio_daniel.md
+    versao: 1.0.0
+    sha256: d82e832444e2293c85e99639cd7dbdd70dd0d0766566de757837316909408c3c
+  destino_sugerido: docs/specs/sdd_testes_cicd.yaml
+  natureza: Contrato de desenvolvimento orientado por especificação. Este arquivo não é um workflow executável do
+    GitHub Actions.
+  convencoes:
+    'null': Decisão ainda em aberto; não significa aprovada ou implementada.
+    prioridade: As prioridades must, should e could da origem são preservadas.
+    novas_decisoes: Critérios técnicos abaixo são propostas de implementação da qualidade, sem ampliar funcionalidades.
+escopo:
+  inclui:
+  - Testes do portfólio HTML/CSS/TypeScript/Vite e dos jogos Canvas single-player.
+  - Testes do backend Django/DRF, PostgreSQL, autenticação, placares, rankings e funcionalidades opcionais quando
+    adotadas.
+  - Rastreabilidade, GitHub Flow, integração contínua e contrato de entrega e implantação.
+  exclui:
+  - Aplicativos nativos para desktop ou celular.
+  - Modo multijogador em tempo real.
+  - Chat entre usuários.
+  - Compras, anúncios ou moedas pagas.
+  - Cópia de nomes, personagens, mapas, artes ou sons de jogos comerciais.
+  - Editor público de mapas.
+  limites:
+  - Nenhuma aplicação ou suíte de testes foi fornecida ou implementada nesta entrega.
+  - Não definir pontuação, temporizadores, rotação, autenticação ou hospedagem implicitamente; usar decisões versionadas
+    antes de implementar os testes correspondentes.
+  - Jogar no navegador não implica suporte offline; PWA permanece opcional.
+  - Não tornar conquistas, toque, gamepad ou filtros de período obrigatórios.
+processo_sdd:
+  ciclo:
+  - Selecionar requisito existente e registrar issue com RF/RNF/RN e critério esperado.
+  - Resolver decisões necessárias e atualizar a especificação em branch curta.
+  - Detalhar fixtures e casos positivos, negativos e limites; adicionar teste que falhe pelo comportamento ausente.
+  - Implementar somente o comportamento especificado.
+  - Executar testes, corrigir e refatorar preservando o contrato.
+  - Abrir PR com evidências e rastreabilidade; integrar após critérios de qualidade.
+  - Publicar somente versão aprovada pelos gates de release e registrar resultado.
+  rastreabilidade:
+    cadeia: requisito -> cenário -> teste/caminho -> job -> execução/commit -> release
+    nome_teste: Incluir ID TC no nome do teste; usar IDs dos requisitos em marcadores ou metadados.
+    estado_inicial: Todos os cenários estão planejados. Cenário especificado não representa cobertura executada.
+    mudanca_escopo: Alterar a análise de requisitos explicitamente antes de introduzir comportamento fora dela.
+decisoes_e_pre_requisitos:
+- id: DEC-01
+  origem:
+  - QA-002
+  assunto: Sessão/cookie ou token; definir CSRF, expiração e códigos HTTP de autenticação.
+  bloqueia: Testes definitivos de autenticação e implantação pública do backend.
+- id: DEC-02
+  origem:
+  - QA-005
+  assunto: Versionar regras de pontuação, níveis, limites, grade, rotação, bombas, inimigos e vitória por jogo.
+  bloqueia: Oráculos numéricos dos testes de cada jogo; não usar números inventados como regras do produto.
+- id: DEC-03
+  origem:
+  - QA-003
+  - QA-004
+  assunto: Registrar dispositivos e versões; baseline da origem são duas versões estáveis recentes de Chrome, Firefox,
+    Edge e Safari. Toque/gamepad continuam opcionais.
+  bloqueia: Aceite final de compatibilidade; não bloqueia testes unitários.
+- id: DEC-04
+  origem:
+  - QA-006
+  assunto: Escolher hospedagem de frontend, Django e PostgreSQL; ambientes, URLs, credenciais e mecanismo de rollback.
+  bloqueia: Ativação do CD; CI e geração de artefatos continuam possíveis.
+- id: DEC-05
+  origem:
+  - RN-004
+  assunto: 'Proposta: primeiro finish válido retorna 201; repetição idêntica retorna 200 com mesmo Score; repetição
+    conflitante retorna 409. Em todos os casos no máximo um Score.'
+  bloqueia: Contrato HTTP final; persistência única já é obrigatória.
+estrategia_testes:
+  ferramentas_propostas:
+    frontend: Vitest para lógica e integração; ESLint e tsc para análise estática.
+    backend: pytest, pytest-django, pytest-cov e Ruff.
+    e2e: Playwright; axe-core integrado para auditoria automática da interface.
+    dependencias: npm audit e pip-audit sobre dependências fixadas.
+    workflow: actionlint e parser YAML com rejeição de chaves duplicadas.
+  determinismo:
+  - Injetar relógio e gerador aleatório nos motores dos jogos.
+  - Separar update/regras da renderização Canvas; medir estado, colisões e pontuação diretamente.
+  - Usar fake timers para pausa e bombas; não depender de sleeps reais.
+  - Fixtures pequenas e seed fixa; execução isolada por teste.
+  - PostgreSQL descartável na CI para restrições, transações e concorrência.
+  - Nenhum teste usa conta real ou banco de produção.
+  camadas:
+    unitario: Regras de jogo e funções de domínio com baixo custo.
+    integracao: Frontend/API com respostas simuladas; API/banco com PostgreSQL real de teste.
+    e2e: Build do frontend com Django e banco reais de teste; cadastro, login, partida, resultado e ranking.
+    manual: Compatibilidade em navegadores reais, fluidez e revisão de acessibilidade e recursos licenciados.
+  falhas:
+  - Teste quebrado falha o job; proibir passWithNoTests e continue-on-error em gates obrigatórios.
+  - Retentativa de teste não pode ocultar regressão; registrar flakiness e corrigir antes do aceite.
+  - Relatórios de falha, traces e screenshots sem senhas/tokens; retenção proposta de 14 dias.
+  cobertura:
+    criterio: Todos os cenários obrigatórios da entrega implementados e aprovados; nenhum skip/todo no escopo declarado
+      pronto.
+    percentual_minimo: null
+    justificativa: A origem não define percentual; gerar relatórios e revisar lacunas, sem transformar percentual
+      arbitrário em requisito.
+    opcionais: Ativar seus testes quando a funcionalidade for incluída; manter backlog explícito fora do gate.
+cenarios_funcionais:
+- id: TC-001
+  requisitos:
+  - RF-001
+  - RF-002
+  - RF-003
+  - RF-004
+  nivel: e2e
+  fase_minima: 1
+  ativacao: obrigatório na entrega que inclui os requisitos
+  status: planejado
+  dado: Portfólio com catálogo e conteúdos de fixture.
+  quando: Abrir início, projetos e cards de jogos.
+  entao: Apresentação, habilidades e conteúdos presentes; links e botões levam aos destinos configurados; verificar
+    cada jogo incluído.
+- id: TC-002
+  requisitos:
+  - RF-010
+  - RF-012
+  - RF-013
+  - CA-001
+  - RN-001
+  nivel: e2e
+  fase_minima: 2
+  ativacao: obrigatório na entrega que inclui os requisitos
+  status: planejado
+  dado: Visitante sem cookie/token; assets carregados.
+  quando: Iniciar cada jogo e bloquear chamadas à API durante a partida.
+  entao: Instruções e placar visíveis; comandos funcionam; partida continua sem login ou dependência de requisições.
+- id: TC-003
+  requisitos:
+  - RF-011
+  - RN-007
+  - CA-001
+  nivel: unitario
+  fase_minima: 2
+  ativacao: obrigatório na entrega que inclui os requisitos
+  status: planejado
+  dado: Partida ativa com relógio controlado.
+  quando: Pausar, avançar relógio, retomar, reiniciar e encerrar em casos separados.
+  entao: Pausa congela posições, timers e placar; retomada não compensa tempo pausado; reinício restaura estado
+    e não duplica loop/listeners; encerramento impede updates.
+- id: TC-004
+  requisitos:
+  - RF-014
+  - RF-015
+  nivel: integracao
+  fase_minima: 2
+  ativacao: obrigatório na entrega que inclui os requisitos
+  status: planejado
+  dado: Preferências padrão e armazenamento local simulado.
+  quando: Silenciar, ajustar volume e recarregar; simular storage indisponível.
+  entao: Áudio respeita opções; persistência somente se RF-015 adotado; indisponibilidade não impede jogar.
+- id: TC-005
+  requisitos:
+  - RF-020
+  - RF-021
+  - CA-002
+  nivel: unitario
+  fase_minima: 2
+  ativacao: obrigatório na entrega que inclui os requisitos
+  status: planejado
+  dado: Grade e corpo conhecidos; alimento em célula livre na frente da cabeça.
+  quando: Avançar um tick na direção válida.
+  entao: Cabeça avança uma célula; coleta cresce conforme regra versionada e incrementa score; novo alimento não
+    ocupa corpo; entradas rápidas não permitem movimento inválido.
+- id: TC-006
+  requisitos:
+  - RF-022
+  - CA-002
+  nivel: unitario
+  fase_minima: 2
+  ativacao: obrigatório na entrega que inclui os requisitos
+  status: planejado
+  dado: Corpo e limites configurados com trajetória de colisão.
+  quando: Avançar contra corpo e contra limite em testes separados.
+  entao: Game over no modo de limites adotado; updates posteriores não mudam score; validar célula de cauda conforme
+    ordem de movimento definida.
+- id: TC-007
+  requisitos:
+  - RF-023
+  nivel: unitario
+  fase_minima: 2
+  ativacao: obrigatório na entrega que inclui os requisitos
+  status: planejado
+  dado: Pontuação abaixo de limiar de velocidade documentado.
+  quando: Atingir limiar e repetir nas fronteiras.
+  entao: Intervalo muda somente conforme tabela versionada e respeita mínimo; pausa não aumenta dificuldade.
+- id: TC-008
+  requisitos:
+  - RF-030
+  - RF-031
+  - CA-003
+  nivel: unitario
+  fase_minima: 3
+  ativacao: obrigatório na entrega que inclui os requisitos
+  status: planejado
+  dado: Tabuleiro e sequência de peças fixos.
+  quando: Gerar, mover, girar junto a paredes/blocos e acelerar queda.
+  entao: Ações válidas alteram posição; inválidas preservam estado; células nunca saem da grade nem sobrepõem peças
+    fixas; usar regra de rotação decidida.
+- id: TC-009
+  requisitos:
+  - RF-032
+  - CA-003
+  nivel: unitario
+  fase_minima: 3
+  ativacao: obrigatório na entrega que inclui os requisitos
+  status: planejado
+  dado: Fixtures com zero, uma e múltiplas linhas completas.
+  quando: Fixar peça e resolver linhas.
+  entao: Remove exatamente linhas completas, desloca superiores e calcula score pela regra versionada; não pontua
+    duas vezes.
+- id: TC-010
+  requisitos:
+  - RF-033
+  - RF-034
+  - CA-003
+  nivel: unitario
+  fase_minima: 3
+  ativacao: obrigatório na entrega que inclui os requisitos
+  status: planejado
+  dado: Entrada de peça bloqueada; fixture separada com espaço para queda.
+  quando: Gerar peça; em outro teste, realizar queda instantânea.
+  entao: Entrada bloqueada encerra partida; preview corresponde à sequência; queda termina na última posição legal.
+- id: TC-011
+  requisitos:
+  - RF-040
+  - RF-043
+  nivel: unitario
+  fase_minima: 4
+  ativacao: obrigatório na entrega que inclui os requisitos
+  status: planejado
+  dado: Mapa com chão, parede e bloco destrutível.
+  quando: Tentar movimentar para cada tipo e para fora do mapa.
+  entao: Aceita apenas destinos transitáveis definidos; não atravessa obstáculos ou bordas.
+- id: TC-012
+  requisitos:
+  - RF-041
+  - RF-042
+  - CA-004
+  nivel: unitario
+  fase_minima: 4
+  ativacao: obrigatório na entrega que inclui os requisitos
+  status: planejado
+  dado: Bomba com timer e alcance versionados; parede e bloco no caminho.
+  quando: Avançar tempo até antes e até o instante de detonação.
+  entao: Não explode antes; explode uma vez ao vencer; parede bloqueia alcance; bloco e entidades afetados conforme
+    regras; validar célula imediatamente após alcance.
+- id: TC-013
+  requisitos:
+  - RF-044
+  nivel: unitario
+  fase_minima: 4
+  ativacao: obrigatório na entrega que inclui os requisitos
+  status: planejado
+  dado: Fixtures separadas de objetivo concluído e jogador atingido.
+  quando: Resolver último evento da partida.
+  entao: Estado final é vitória ou derrota conforme regra decidida, sem duplicar resultado; precedência de eventos
+    simultâneos deve estar documentada.
+- id: TC-014
+  requisitos:
+  - RF-045
+  - RF-046
+  nivel: unitario
+  fase_minima: 4
+  ativacao: obrigatório na entrega que inclui os requisitos
+  status: planejado
+  dado: Seed e mapa conhecidos, inimigo ativo e bloco com conteúdo configurado.
+  quando: Atualizar inimigo e destruir bloco.
+  entao: Inimigo respeita colisões e regra de dificuldade; item aparece/coleta conforme configuração, aplicado uma
+    vez.
+- id: TC-015
+  requisitos:
+  - RF-050
+  - RF-051
+  nivel: api
+  fase_minima: 5
+  ativacao: obrigatório na entrega que inclui os requisitos
+  status: planejado
+  dado: Banco isolado e estratégia de autenticação decidida.
+  quando: Cadastrar dados válidos, duplicados e inválidos; entrar com senha correta/incorreta; sair.
+  entao: Conta válida criada; erros não criam conta; senha nunca retornada e hash armazenado; logout invalida sessão/credencial
+    conforme contrato.
+- id: TC-016
+  requisitos:
+  - RF-052
+  - RF-063
+  nivel: api
+  fase_minima: 5
+  ativacao: obrigatório na entrega que inclui os requisitos
+  status: planejado
+  dado: Dois usuários com resultados e recordes distintos.
+  quando: Consultar /users/me/ com cada usuário.
+  entao: Retorna somente dados pessoais do autenticado e seus melhores resultados; sem exposição de senha/hash.
+- id: TC-017
+  requisitos:
+  - RF-053
+  nivel: api
+  fase_minima: 5
+  ativacao: quando funcionalidade opcional for adotada
+  status: planejado
+  dado: Conta de teste e envio de e-mail simulado.
+  quando: Solicitar reset e usar token válido, expirado e já utilizado.
+  entao: Somente token válido redefine senha; resposta pública não revela existência de conta; token de uso único.
+- id: TC-018
+  requisitos:
+  - RF-060
+  - RF-061
+  - RN-001
+  - RN-002
+  - RN-003
+  - RN-008
+  - CA-005
+  nivel: api
+  fase_minima: 5
+  ativacao: obrigatório na entrega que inclui os requisitos
+  status: planejado
+  dado: Sessão ativa pertencente ao usuário e jogo conhecidos.
+  quando: Finalizar com resultado válido; em casos separados enviar negativo, fracionário, fora do limite, metadados
+    inválidos e usuário/jogo forjados.
+  entao: Válido persiste e conclui sessão atomicamente; inválidos não criam Score; identidade e jogo vêm da sessão
+    autenticada no servidor.
+- id: TC-019
+  requisitos:
+  - RF-061
+  - RN-004
+  - CA-005
+  nivel: api
+  fase_minima: 5
+  ativacao: obrigatório na entrega que inclui os requisitos
+  status: planejado
+  dado: Sessão finalizada com Score único.
+  quando: Reenviar mesmo resultado, enviar diferente e realizar duas requisições concorrentes em PostgreSQL.
+  entao: No máximo um Score e uma contabilização; responder conforme DEC-05; não gerar erro 500 de restrição única.
+- id: TC-020
+  requisitos:
+  - RF-060
+  - RF-061
+  - RN-008
+  nivel: integracao
+  fase_minima: 5
+  ativacao: obrigatório na entrega que inclui os requisitos
+  status: planejado
+  dado: Partida terminada e resultado pendente; API indisponível ou resposta perdida.
+  quando: Enviar, exibir falha e tentar novamente com mesma session_id.
+  entao: Interface informa que não salvou ou resultado incerto; retry idempotente; não perde controle do jogo; não
+    anuncia sucesso sem resposta confirmada.
+- id: TC-021
+  requisitos:
+  - RF-062
+  - RN-005
+  - CA-006
+  nivel: api
+  fase_minima: 5
+  ativacao: obrigatório na entrega que inclui os requisitos
+  status: planejado
+  dado: Placares 300, 100 e 300 com datas distintas, além de um inválido e outro jogo.
+  quando: Consultar ranking e páginas adjacentes.
+  entao: Ordena score decrescente e timestamp crescente nos empates; apenas jogo solicitado e válidos; contrato
+    de paginação estável e desempate terciário por ID para datas iguais.
+- id: TC-022
+  requisitos:
+  - RF-064
+  nivel: api
+  fase_minima: 5
+  ativacao: quando funcionalidade opcional for adotada
+  status: planejado
+  dado: Placares antes, dentro e depois do período definido em UTC.
+  quando: Consultar cada filtro e fronteiras de datas.
+  entao: Somente registros do intervalo definido; timezone e limites inclusivos/exclusivos documentados.
+- id: TC-023
+  requisitos:
+  - RF-070
+  - RF-071
+  - RN-006
+  - RF-052
+  nivel: api
+  fase_minima: 5
+  ativacao: quando funcionalidade opcional for adotada
+  status: planejado
+  dado: Critério de conquista versionado, jogador abaixo do limiar.
+  quando: Atingir critério e repetir o processamento inclusive simultaneamente.
+  entao: Uma concessão por usuário/conquista; perfil distingue obtidas e bloqueadas; sem duplicação de estatísticas.
+- id: TC-024
+  requisitos:
+  - RF-080
+  nivel: api
+  fase_minima: 5
+  ativacao: obrigatório na entrega que inclui os requisitos
+  status: planejado
+  dado: Visitante, usuário comum e administrador em fixtures.
+  quando: Acessar administração e tentar invalidar resultado.
+  entao: Somente administrador autorizado altera; invalidado deixa ranking; registrar alteração sem dados sensíveis.
+- id: TC-025
+  requisitos:
+  - RF-010
+  - RF-050
+  - RF-051
+  - RF-060
+  - RF-062
+  - CA-005
+  - CA-006
+  nivel: e2e
+  fase_minima: 5
+  ativacao: obrigatório na entrega que inclui os requisitos
+  status: planejado
+  dado: Frontend buildado, Django e PostgreSQL reais de teste.
+  quando: Cadastrar, entrar, iniciar sessão, completar partida controlada, enviar, consultar ranking e sair.
+  entao: Resultado do mesmo usuário aparece uma vez; fluxo usa API real; logout impede novo envio online; visitante
+    continua jogando.
+cenarios_nao_funcionais:
+- id: TC-101
+  requisitos:
+  - RNF-001
+  nivel: performance
+  status: planejado
+  procedimento_e_resultado: Em build de produção, definir antes da medição dispositivo, navegador, rede, CPU, cache
+    frio e marcador de interface utilizável; executar 5 cargas, cada uma em até 3000 ms. Registrar valores; não
+    substituir utilizável apenas por score Lighthouse.
+- id: TC-102
+  requisitos:
+  - RNF-002
+  nivel: manual
+  status: planejado
+  procedimento_e_resultado: Medir 60 segundos após aquecimento por jogo em equipamento documentado, FPS e frame
+    time; meta próxima de 60 FPS da origem; registrar quedas e seu impacto. Runner compartilhado não é referência
+    definitiva.
+- id: TC-103
+  requisitos:
+  - RNF-003
+  nivel: e2e
+  status: planejado
+  procedimento_e_resultado: Testar páginas a 320, 768 e 1440 px, sem conteúdo essencial cortado/overflow horizontal;
+    botões operáveis. Responsividade não ativa controles por toque automaticamente.
+- id: TC-104
+  requisitos:
+  - RNF-004
+  nivel: manual
+  status: planejado
+  procedimento_e_resultado: Automatizar Chromium, Firefox e WebKit no Playwright; complementar com duas versões
+    reais recentes de Chrome, Firefox, Edge e Safari registradas no release. WebKit não comprova Safari real.
+- id: TC-105
+  requisitos:
+  - RNF-005
+  nivel: acessibilidade
+  status: planejado
+  procedimento_e_resultado: Auditoria axe-core, teclado, foco visível, rótulos, contraste e leitura das páginas/menus;
+    evidência manual da busca por WCAG 2.2 AA. Scan sem erros não certifica conformidade nem acessibilidade integral
+    de Canvas.
+- id: TC-106
+  requisitos:
+  - RNF-006
+  nivel: seguranca
+  status: planejado
+  procedimento_e_resultado: Em homologação confirmar HTTPS e autorização dos endpoints; sessão de outro usuário
+    ou anônima não pode finalizar partida alheia. Conferir cookies quando adotados.
+- id: TC-107
+  requisitos:
+  - RNF-007
+  nivel: seguranca
+  status: planejado
+  procedimento_e_resultado: Validar schema e limites da API; texto com marcação deve aparecer como texto inerte;
+    parâmetros não alteram consultas; CSRF conforme autenticação escolhida; excesso de chamadas retorna 429 no limite
+    documentado. Auditar dependências fixadas.
+- id: TC-108
+  requisitos:
+  - RNF-008
+  nivel: manual
+  status: planejado
+  procedimento_e_resultado: 'Inspecionar cadastro, API, relatórios e política: dados mínimos, finalidade informada,
+    senha/hash nunca públicos, fixtures sintéticas e segredos ausentes dos artefatos.'
+- id: TC-109
+  requisitos:
+  - RNF-009
+  nivel: estatico
+  status: planejado
+  procedimento_e_resultado: Lint, tipagem, formatação e build com lockfiles; README permite instalar, migrar banco
+    e executar testes com comandos documentados.
+- id: TC-110
+  requisitos:
+  - RNF-010
+  nivel: qualidade
+  status: planejado
+  procedimento_e_resultado: Validar rastreabilidade e resultados de todos os testes ativos; nenhuma suíte obrigatória
+    vazia; relatório identifica commit e ambiente.
+- id: TC-111
+  requisitos:
+  - RNF-011
+  nivel: integracao
+  status: planejado
+  procedimento_e_resultado: 'Provocar falha controlada de API: log com contexto técnico e correlação, sem senha/token/cookie
+    ou corpo sensível; cliente recebe erro seguro sem traceback.'
+- id: TC-112
+  requisitos:
+  - RN-009
+  nivel: manual
+  status: planejado
+  procedimento_e_resultado: Inventariar arte, áudio, nomes e mapas de Bomb Arena com autoria/licença e atribuição
+    necessária; revisar antes da publicação.
+github_flow:
+  branch_principal: main
+  branches_curtas:
+  - feat/RF-020-snake
+  - fix/RN-004-score-duplicado
+  - test/TC-012-bombas
+  - ci/pipeline
+  rotina:
+  - Criar branch a partir de main atualizada.
+  - Alterar spec, testes e código do mesmo requisito.
+  - Executar verificações locais; commit e push.
+  - Abrir PR para main com IDs, motivação, comportamento e evidências.
+  - Resolver comentários e conflitos; rerodar CI após alterações.
+  - Fazer squash merge quando ci-gate estiver aprovado para o commit atual.
+  - Executar CI novamente no push resultante em main; somente esse SHA pode gerar release.
+  - Excluir branch curta; registrar release e resultado do deploy.
+  protecao_main:
+    exigir_pr: true
+    check_obrigatorio: ci-gate
+    branch_atualizada: true
+    bloquear_force_push: true
+    bloquear_exclusao: true
+    resolver_conversas: true
+    revisao: Com colaborador, exigir uma aprovação independente e invalidar aprovação obsoleta; em projeto individual,
+      registrar auto-revisão sem configurar uma aprovação impossível do autor.
+    configuracao: Aplicar em Settings/Rules ou Branch protection conforme disponibilidade da conta; arquivo SDD
+      não configura regras automaticamente.
+  pr_template_campos:
+  - Requisitos e cenários afetados
+  - O que mudou e por quê
+  - Comandos e resultados dos testes
+  - Impacto em dados/migrações e rollback
+  - Mudança na spec e decisões resolvidas
+  - Screenshots ou evidências manuais pertinentes
+contrato_repositorio:
+  arquivos_a_implementar:
+    docs/specs/sdd_testes_cicd.yaml: Esta especificação.
+    docs/specs/release_scope.yaml: IDs ativos, cenários associados e fases concluídas; mudanças revisadas em PR.
+    scripts/validate_specs.py: Validar YAML, unicidade, referências e exigir teste/evidência para IDs ativos.
+    frontend/package.json: Declarar comandos npm abaixo.
+    frontend/package-lock.json: Dependências travadas e versionadas.
+    frontend/playwright.config.ts: Iniciar servidores de teste, esperar readiness, usar banco isolado, configurar
+      projetos e traces.
+    backend/requirements-ci.txt: Dependências de produção e de teste fixadas; gerado pelo mecanismo escolhido.
+    backend/pytest.ini: Settings Django de teste e descoberta de testes.
+    backend/config/settings/test.py: Nome proposto; ajustar ao projeto real; banco por variáveis e sem credenciais
+      reais.
+    .github/workflows/ci.yml: Implementar grafo da seção integracao_continua.
+    .github/workflows/cd.yml: Implementar contrato de entrega após DEC-04; não ativar placeholder de deploy.
+  comandos_propostos:
+    validacao_spec:
+      cwd: .
+      run: python scripts/validate_specs.py
+    frontend:
+      cwd: frontend
+      install: npm ci
+      lint: npm run lint
+      tipagem: npm run typecheck
+      testes: npm run test:ci
+      build: npm run build
+      e2e: npm run test:e2e
+    backend:
+      cwd: backend
+      install: python -m pip install -r requirements-ci.txt
+      lint: ruff check .
+      formatacao: ruff format --check .
+      check: python manage.py check
+      migracoes_pendentes: python manage.py makemigrations --check --dry-run
+      migrar: python manage.py migrate --noinput
+      testes: pytest --junitxml=reports/junit.xml --cov=. --cov-report=xml:reports/coverage.xml
+  semantica_scripts_npm:
+    lint: ESLint no código e testes.
+    typecheck: tsc --noEmit.
+    test:ci: Vitest run, sem watch, com relatórios JUnit e cobertura.
+    build: Build Vite de produção.
+    test:e2e: Playwright com frontend buildado, backend de teste e PostgreSQL; instalar browsers e dependências
+      antes.
+  reprodutibilidade:
+  - Fixar versões compatíveis de Node, Python, PostgreSQL e ferramentas no repositório ao implementar; não selecionar
+    versões flutuantes silenciosamente.
+  - Auditar e fixar actions externas por SHA completo verificado; registrar versão correspondente em comentário.
+  - Instalar dependências com lockfiles e usar cache pela combinação SO/runtime/hash do lockfile.
+  - Comandos descritos são contratos a implementar; não há código de aplicação nesta entrega.
+integracao_continua:
+  engine: GitHub Actions
+  workflow_planejado: .github/workflows/ci.yml
+  gatilhos:
+    pull_request:
+      branches:
+      - main
+      types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+    push:
+      branches:
+      - main
+    workflow_dispatch: {}
+  permissoes:
+    contents: read
+  concorrencia:
+    grupo: ci-${{ github.event.pull_request.number || github.ref }}
+    cancelar_em_execucao: true
+  seguranca:
+  - PRs não recebem segredos de produção nem executam deploy.
+  - Usar pull_request para código não confiável; não executar código do PR em pull_request_target com privilégios.
+  - Runner hospedado descartável; nenhuma exposição de banco real.
+  jobs:
+  - id: spec
+    needs: []
+    timeout_minutes: 5
+    tarefas:
+    - Preparar runtime e parser YAML fixados.
+    - Executar validate_specs.py e actionlint dos workflows.
+    - Validar IDs da origem, casos únicos, escopo ativo e contratos preenchidos.
+  - id: frontend
+    needs:
+    - spec
+    timeout_minutes: 15
+    tarefas:
+    - Preparar runtime fixado.
+    - npm ci, lint, typecheck, test:ci e build em frontend.
+    - Guardar relatórios e dist associados ao SHA testado.
+  - id: backend
+    needs:
+    - spec
+    timeout_minutes: 15
+    ativacao: A partir da fase 5; antes, ausência deliberada registrada pelo manifesto de escopo.
+    tarefas:
+    - Subir PostgreSQL descartável com healthcheck e credenciais exclusivamente de teste.
+    - Instalar dependências fixadas, Ruff, check e verificação de migrações.
+    - Aplicar migrações em banco vazio; executar pytest incluindo concorrência com transações reais.
+  - id: dependencias
+    needs:
+    - spec
+    timeout_minutes: 10
+    tarefas:
+    - Auditar lockfiles npm e Python ativos.
+    - Falhar para vulnerabilidade alta/crítica sem exceção documentada com motivo, responsável e validade.
+    - Falha de scanner/rede não equivale a ausência de vulnerabilidades; registrar e repetir execução.
+  - id: e2e
+    needs:
+    - frontend
+    - backend
+    timeout_minutes: 20
+    tarefas:
+    - Executar para módulos ativos mesmo se backend legitimamente não aplicável; condição explícita deve distinguir
+      não aplicável de falha.
+    - Instalar browsers Playwright; iniciar frontend buildado e, a partir da fase 5, Django e PostgreSQL de teste.
+    - Esperar readiness com timeout; carregar fixtures; executar Chromium, Firefox e WebKit.
+    - Salvar JUnit, traces e screenshots de falhas; parar servidores.
+  - id: ci-gate
+    needs:
+    - spec
+    - frontend
+    - backend
+    - dependencias
+    - e2e
+    timeout_minutes: 5
+    condicao: always()
+    tarefas:
+    - Executar mesmo quando dependência falhar, cancelar ou for pulada.
+    - Falhar se qualquer job requerido pelo escopo não terminar em success.
+    - Aceitar backend não aplicável somente em fase anterior à 5 declarada e validada; nunca aceitar skipped genericamente.
+    - Falhar se relatório de suíte obrigatória ausente, sem testes, ou com skip/todo de caso ativo.
+    - Emitir resumo com commit, escopo, resultados e limitações manuais.
+  politica_incremental:
+  - 'Fase 1: spec, qualidade/build frontend e navegação do portfólio.'
+  - 'Fase 2: acrescentar Snake e infraestrutura comum. Fases 3 e 4: acrescentar Tetris e Bomb Arena.'
+  - 'Fase 5: tornar backend e integração completa obrigatórios.'
+  - Funcionalidades could só entram no manifesto ao serem adotadas; não reduzir escopo para mascarar falha.
+  - Não aplicar filtro de paths ao workflow obrigatório inteiro; evitar check eternamente pendente.
+  evidencias:
+    retencao_dias: 14
+    conteudo:
+    - JUnit
+    - Cobertura frontend/backend
+    - Relatório E2E
+    - Auditoria de dependências
+    - SHA, escopo ativo e versões das ferramentas
+    publicacao: Publicar relatórios mesmo na falha; artefato de release só após gate aprovado.
+entrega_e_implantacao:
+  workflow_planejado: .github/workflows/cd.yml
+  estado_inicial: desabilitado até DEC-04 e adaptadores reais implementados
+  modalidade: Entrega contínua com produção por acionamento explícito; homologação automática após CI de main. Não
+    simular deploy com echo.
+  gatilhos_planejados:
+    homologacao: workflow_run do workflow CI concluído, sucesso, evento push em main do próprio repositório.
+    producao: workflow_dispatch com SHA e identificação da release homologada.
+  controle_de_proveniencia:
+  - Rejeitar origem PR/fork, branch diferente de main, CI cancelada/falha ou escopo incompleto para release.
+  - Usar head_sha do CI de main; nunca fazer checkout de main flutuante ao publicar artefato antigo.
+  - Promover o mesmo artefato identificado por SHA e checksum; conferir run_id, origem, manifesto e integridade.
+  - Em acionamento manual confirmar que SHA pertence a main, possui CI aprovado e homologação bem-sucedida do mesmo
+    artefato.
+  artefato:
+    nome: portfolio-games-<sha>
+    conteudo:
+    - frontend/dist
+    - backend e dependências travadas no formato exigido pelo provedor
+    - manifesto com SHA, checksums, versões e migrações
+    configuracao: Separar URLs públicas por ambiente sem inserir segredos no bundle; definir configuração de runtime
+      para promover o mesmo build. Caso reconstrução seja necessária, tratar como novo artefato e revalidar.
+    retencao: Reter pelo menos release ativa e anterior verificadas em armazenamento de release escolhido; não depender
+      só de relatórios temporários.
+  ambientes:
+    homologacao: URLs e banco isolados, dados sintéticos.
+    production: Recursos de produção, credenciais isoladas e branch autorizada main.
+    protecao: Configurar environments/regras disponíveis no plano do repositório; revisão adicional de produção
+      é opcional. Acionamento manual não exige revisor externo para projeto individual.
+  concorrencia:
+    grupo: deploy-<ambiente>
+    cancel_in_progress: false
+    politica: Serializar deploy e rollback do mesmo ambiente; antes de iniciar rejeitar versão obsoleta salvo rollback
+      explícito. Não cancelar migração em execução.
+  adaptador_deploy:
+    status: a implementar após escolha da hospedagem
+    entrada:
+    - ambiente
+    - release_sha
+    - caminho_artefato
+    - checksum
+    saida:
+    - deployment_id
+    - urls
+    - sha_implantado
+    - status_terminal
+    falhas: Ausência de configuração, credencial ou script real falha explicitamente; não marcar deployment como
+      sucesso.
+    credenciais: Secrets de environment ou identidade temporária oferecida pelo provedor; nunca no YAML ou no frontend.
+      Permissões adicionais apenas no job que precisa.
+  sequencia:
+  - Verificar proveniência e integridade da release.
+  - Validar configuração, disponibilidade do banco e plano de migrações.
+  - Garantir ponto de recuperação do banco antes de migração; alterações destrutivas exigem plano separado.
+  - Aplicar migrações compatíveis com versão atual e anterior; falha interrompe publicação.
+  - Implantar backend e assets; executar collectstatic se a configuração Django exigir.
+  - Aguardar status terminal do provedor com timeout definido.
+  - Executar smoke em HTTPS; confirmar versão, início de jogo e GET /api/v1/games/. Fluxo de escrita somente em
+    homologação com dados de teste.
+  - Registrar SHA, deployment_id, URLs, migrações e evidências; só então marcar sucesso.
+  rollback:
+    gatilho: Falha de smoke ou degradação confirmada após deploy.
+    procedimento:
+    - Parar novas promoções e selecionar release anterior verificada.
+    - Confirmar compatibilidade do schema atual com a versão anterior.
+    - Reimplantar artefato anterior sem reconstrução e repetir smoke.
+    - Registrar falha e recuperação; corrigir via branch e PR.
+    limite: Reverter código não reverte dados. Não desfazer migrações destrutivas automaticamente; restauração do
+      banco depende de plano de recuperação e avaliação de perda de dados.
+  gates_release:
+  - ci-gate aprovado no SHA de main.
+  - Todos os requisitos must da versão declarada atendidos; fases intermediárias identificadas como incrementais.
+  - Evidências manuais aplicáveis de compatibilidade, acessibilidade, desempenho e licenças registradas.
+  - Decisões bloqueadoras resolvidas e contratos de deploy preenchidos.
+  - Migrações e recuperação testadas em homologação.
+aceitacao_da_automacao:
+- id: PIPE-01
+  cenario: PR com teste falhando
+  resultado: ci-gate falha; merge protegido bloqueado; CD não dispara.
+- id: PIPE-02
+  cenario: Suite obrigatória vazia ou job cancelado/pulado indevidamente
+  resultado: Gate falha; nunca verde por ausência de execução.
+- id: PIPE-03
+  cenario: Push após merge em main
+  resultado: CI testa novo SHA; somente sucesso permite empacotar/promover esse SHA.
+- id: PIPE-04
+  cenario: PR externo tenta usar secrets ou disparar deploy
+  resultado: Nenhuma credencial ou publicação disponível ao PR.
+- id: PIPE-05
+  cenario: Duas releases concorrentes no mesmo ambiente
+  resultado: Publicações serializadas; migração ativa não é cancelada; rejeitar promoção obsoleta.
+- id: PIPE-06
+  cenario: Migração ou smoke falha
+  resultado: Release não marcada como sucesso; executar plano de recuperação aplicável e registrar evidências.
+- id: PIPE-07
+  cenario: SHA/artefato não corresponde ao CI homologado
+  resultado: Deploy recusado antes de alterar o ambiente.
+- id: PIPE-08
+  cenario: Provedor, credencial ou adaptador não configurado
+  resultado: CD permanece desabilitado; tentativa explícita falha com diagnóstico; CI continua disponível.
+tarefas_de_implementacao:
+- ordem: 1
+  tarefa: Versionar spec e manifesto de escopo inicial; implementar validador e testes de referências inválidas.
+  status: pendente
+- ordem: 2
+  tarefa: Definir runtimes, lockfiles, scripts npm e configuração pytest/PostgreSQL.
+  status: pendente
+- ordem: 3
+  tarefa: Implementar testes por fase, com IDs TC e fixtures determinísticas.
+  status: pendente
+- ordem: 4
+  tarefa: Criar ci.yml com grafo, relatórios e ci-gate obrigatório; validar com actionlint.
+  status: pendente
+- ordem: 5
+  tarefa: Configurar proteção de main e template de PR; provar PIPE-01 a PIPE-04 e PIPE-07 em ambiente isolado.
+  status: pendente
+- ordem: 6
+  tarefa: Resolver DEC-04, implementar empacotamento/adaptador e criar cd.yml; validar homologação.
+  status: pendente
+- ordem: 7
+  tarefa: Testar PIPE-05, PIPE-06 e PIPE-08; configurar produção, smoke e recuperação.
+  status: pendente
+fontes_tecnicas:
+- titulo: GitHub Flow
+  url: https://docs.github.com/en/get-started/using-github/github-flow
+- titulo: Workflow syntax for GitHub Actions
+  url: https://docs.github.com/actions/reference/workflow-syntax-for-github-actions
+- titulo: Managing environments for deployment
+  url: https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments
+matriz_rastreabilidade:
+- requisito: CA-001
+  cenarios:
+  - TC-002
+  - TC-003
+- requisito: CA-002
+  cenarios:
+  - TC-005
+  - TC-006
+- requisito: CA-003
+  cenarios:
+  - TC-008
+  - TC-009
+  - TC-010
+- requisito: CA-004
+  cenarios:
+  - TC-012
+- requisito: CA-005
+  cenarios:
+  - TC-018
+  - TC-019
+  - TC-025
+- requisito: CA-006
+  cenarios:
+  - TC-021
+  - TC-025
+- requisito: RF-001
+  cenarios:
+  - TC-001
+- requisito: RF-002
+  cenarios:
+  - TC-001
+- requisito: RF-003
+  cenarios:
+  - TC-001
+- requisito: RF-004
+  cenarios:
+  - TC-001
+- requisito: RF-010
+  cenarios:
+  - TC-002
+  - TC-025
+- requisito: RF-011
+  cenarios:
+  - TC-003
+- requisito: RF-012
+  cenarios:
+  - TC-002
+- requisito: RF-013
+  cenarios:
+  - TC-002
+- requisito: RF-014
+  cenarios:
+  - TC-004
+- requisito: RF-015
+  cenarios:
+  - TC-004
+- requisito: RF-020
+  cenarios:
+  - TC-005
+- requisito: RF-021
+  cenarios:
+  - TC-005
+- requisito: RF-022
+  cenarios:
+  - TC-006
+- requisito: RF-023
+  cenarios:
+  - TC-007
+- requisito: RF-030
+  cenarios:
+  - TC-008
+- requisito: RF-031
+  cenarios:
+  - TC-008
+- requisito: RF-032
+  cenarios:
+  - TC-009
+- requisito: RF-033
+  cenarios:
+  - TC-010
+- requisito: RF-034
+  cenarios:
+  - TC-010
+- requisito: RF-040
+  cenarios:
+  - TC-011
+- requisito: RF-041
+  cenarios:
+  - TC-012
+- requisito: RF-042
+  cenarios:
+  - TC-012
+- requisito: RF-043
+  cenarios:
+  - TC-011
+- requisito: RF-044
+  cenarios:
+  - TC-013
+- requisito: RF-045
+  cenarios:
+  - TC-014
+- requisito: RF-046
+  cenarios:
+  - TC-014
+- requisito: RF-050
+  cenarios:
+  - TC-015
+  - TC-025
+- requisito: RF-051
+  cenarios:
+  - TC-015
+  - TC-025
+- requisito: RF-052
+  cenarios:
+  - TC-016
+  - TC-023
+- requisito: RF-053
+  cenarios:
+  - TC-017
+- requisito: RF-060
+  cenarios:
+  - TC-018
+  - TC-020
+  - TC-025
+- requisito: RF-061
+  cenarios:
+  - TC-018
+  - TC-019
+  - TC-020
+- requisito: RF-062
+  cenarios:
+  - TC-021
+  - TC-025
+- requisito: RF-063
+  cenarios:
+  - TC-016
+- requisito: RF-064
+  cenarios:
+  - TC-022
+- requisito: RF-070
+  cenarios:
+  - TC-023
+- requisito: RF-071
+  cenarios:
+  - TC-023
+- requisito: RF-080
+  cenarios:
+  - TC-024
+- requisito: RN-001
+  cenarios:
+  - TC-002
+  - TC-018
+- requisito: RN-002
+  cenarios:
+  - TC-018
+- requisito: RN-003
+  cenarios:
+  - TC-018
+- requisito: RN-004
+  cenarios:
+  - TC-019
+- requisito: RN-005
+  cenarios:
+  - TC-021
+- requisito: RN-006
+  cenarios:
+  - TC-023
+- requisito: RN-007
+  cenarios:
+  - TC-003
+- requisito: RN-008
+  cenarios:
+  - TC-018
+  - TC-020
+- requisito: RN-009
+  cenarios:
+  - TC-112
+- requisito: RNF-001
+  cenarios:
+  - TC-101
+- requisito: RNF-002
+  cenarios:
+  - TC-102
+- requisito: RNF-003
+  cenarios:
+  - TC-103
+- requisito: RNF-004
+  cenarios:
+  - TC-104
+- requisito: RNF-005
+  cenarios:
+  - TC-105
+- requisito: RNF-006
+  cenarios:
+  - TC-106
+- requisito: RNF-007
+  cenarios:
+  - TC-107
+- requisito: RNF-008
+  cenarios:
+  - TC-108
+- requisito: RNF-009
+  cenarios:
+  - TC-109
+- requisito: RNF-010
+  cenarios:
+  - TC-110
+- requisito: RNF-011
+  cenarios:
+  - TC-111

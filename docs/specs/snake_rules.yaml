@@ -1,0 +1,19 @@
+version: 1.0.0
+decision: DEC-02
+game: snake
+board: {width: 20, height: 20}
+initial_body: [[10, 10], [9, 10], [8, 10]]
+initial_direction: right
+points_per_food: 10
+initial_tick_ms: 160
+minimum_tick_ms: 70
+speed_increase_ms_per_food: 5
+rules:
+  - One direction change per tick; reversing is forbidden.
+  - Food is selected uniformly from free cells.
+  - Moving into the departing tail is allowed when not growing.
+  - Walls and body collisions end the game.
+  - Filling the board wins the game.
+  - Pause freezes updates; resuming discards elapsed paused time.
+  - Restart resets score, body, direction and timing.
+  - Ending a game prevents further updates.

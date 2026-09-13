@@ -1,0 +1,46 @@
+version: 1.0.0
+decisions:
+  DEC-01:
+    authentication: Django session cookie, same-origin frontend/API, explicit CSRF on all unsafe requests including login and registration
+    expiry_seconds: 43200
+    unauthorized_status: 403
+    invalid_credentials_status: 400
+  DEC-02:
+    tetris:
+      board: [10, 20]
+      pieces: seven tetrominoes, shuffled seven-bag with injectable random
+      rotation: clockwise matrix rotation, try horizontal offsets [0, -1, 1, -2, 2]; no vertical kicks
+      scoring: '[0, 100, 300, 500, 800] * level before clearing; soft/hard drop give no points'
+      level: 1 + floor(total_lines / 10)
+      gravity_ms: max(100, 800 - (level - 1) * 60)
+    bomb_arena:
+      board: [13, 11]
+      map: original fixed arena, permanent border/even-even pillars and deterministic crates
+      bomb_fuse_ms: 2000
+      flame_ms: 500
+      initial_range: 2
+      initial_capacity: 1
+      movement_cooldown_ms: 120
+      enemy: patrol directions right/down/left/up, rotate when blocked; interval max(250, 650 - destroyed_crates * 10)
+      explosion: cardinal rays, permanent walls stop before hit; crates destroyed and stop ray; bombs chain react
+      powerup: crates at coordinates with (x+y) modulo 3 = 0 reveal range boost, maximum 5
+      score: 10 per crate, 100 per enemy, 500 on victory
+      victory: defeat all enemies; player death takes precedence on simultaneous events
+    common: pause freezes simulation; restart resets all timers; manual end abandons online session without score
+  DEC-05:
+    finish: valid first request 201; identical replay 200; conflicting replay 409
+    persistence: transaction and locked session row; one-to-one score; user/game derived from session
+  score_validation:
+    version: '1.0.0'
+    max_duration_seconds: 86400
+    snake: score equals foods*10, foods <= 397 and foods <= elapsed_seconds/0.07
+    tetris: lines <= 10000, score multiple of 100, lines*100 <= score <= lines*200*(1+floor(lines/10)); lines <= elapsed_seconds*20
+    bomb-arena: 'crates <= 63, enemies <= 3; score = crates*10 + enemies*100 + (won ? 500 : 0); won requires 3 enemies; crates+enemies <= elapsed_seconds*40'
+    limitation: plausibility checks only; browser results are not cryptographic proof of play
+  achievements:
+    first-finish: first accepted result
+    snake-100: accepted Snake score >= 100
+    arena-win: accepted Bomb Arena victory
+  deployment:
+    architecture: Docker Compose with PostgreSQL, Django/Gunicorn and nginx same-origin reverse proxy
+    activation: requires hosting, TLS endpoint, production secrets and approval of tested release

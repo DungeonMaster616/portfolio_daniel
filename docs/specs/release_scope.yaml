@@ -1,0 +1,37 @@
+# IDs ativos, cenários associados e fases concluídas
+active_ids: [RF-001, RF-002, RF-004, RF-010, RF-011, RF-012, RF-013, RF-014, RF-015, RF-020, RF-021, RF-022, RF-023, RF-030, RF-031, RF-032, RF-033, RF-034, RF-040, RF-041, RF-042, RF-043, RF-044, RF-045, RF-046, RF-050, RF-051, RF-052, RF-060, RF-061, RF-062, RF-063, RF-070, RF-071, RN-001, RN-002, RN-003, RN-004, RN-005, RN-006, RN-007, RN-008, CA-001, CA-002, CA-003, CA-004, CA-005, CA-006]
+completed_phases: []
+version: 1.0.0
+test_paths:
+  TC-001: [frontend/tests/portfolio.spec.ts]
+  TC-002: [frontend/tests/portfolio.spec.ts, frontend/tests/integration.spec.ts]
+  TC-003: [frontend/src/snake.test.ts, frontend/src/games.test.ts]
+  TC-004: [frontend/tests/integration.spec.ts]
+  TC-005: [frontend/src/snake.test.ts]
+  TC-006: [frontend/src/snake.test.ts]
+  TC-007: [frontend/src/snake.test.ts]
+  TC-008: [frontend/src/games.test.ts]
+  TC-009: [frontend/src/games.test.ts]
+  TC-010: [frontend/src/games.test.ts]
+  TC-011: [frontend/src/games.test.ts]
+  TC-012: [frontend/src/games.test.ts]
+  TC-013: [frontend/src/games.test.ts]
+  TC-014: [frontend/src/games.test.ts]
+  TC-015: [backend/games/tests.py]
+  TC-016: [backend/games/tests.py]
+  TC-018: [backend/games/tests.py]
+  TC-019: [backend/games/tests.py, backend/games/test_concurrency.py]
+  TC-020: [frontend/tests/integration.spec.ts]
+  TC-021: [backend/games/tests.py]
+  TC-022: [backend/games/test_more_api.py]
+  TC-024: [backend/games/test_more_api.py]
+  TC-023: [backend/games/tests.py]
+  TC-025: [frontend/tests/integration.spec.ts]
+  TC-103: [frontend/tests/portfolio.spec.ts]
+  TC-105: [frontend/tests/integration.spec.ts]
+  TC-107: [backend/games/tests.py]
+limitations:
+  - Active means implemented and mapped, not final acceptance of every assertion in the original scenario.
+  - PostgreSQL concurrency runs only when POSTGRES_DB is configured; CI requires it.
+  - Real Safari and Edge version matrix, manual accessibility and performance acceptance remain external checks.
+  - RF-003 requires real contact links; RF-053 password reset remains optional and not adopted.

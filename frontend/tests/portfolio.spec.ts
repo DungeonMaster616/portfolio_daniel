@@ -1,0 +1,20 @@
+import { test, expect } from '@playwright/test'
+test('TC-001 / TC-002: portfolio and guest Snake work without API', async ({ page }) => {
+  await page.route('**/api/**', route => route.abort())
+  await page.goto('/')
+  await expect(page.getByRole('heading', { name: 'Código que vira experiência.' })).toBeVisible()
+  await expect(page.locator('.cards article')).toHaveCount(3)
+  await page.getByRole('link', { name: 'Jogar Snake' }).click()
+  await page.getByRole('button', { name: 'Iniciar', exact: true }).click()
+  await expect(page.locator('#status')).toHaveText('Em jogo')
+  await page.locator('canvas').press('p')
+  await expect(page.locator('#status')).toHaveText('Partida pausada')
+  await page.getByRole('button', { name: 'Retomar' }).click()
+  await expect(page.locator('#status')).toHaveText('Em jogo')
+  await page.getByRole('button', { name: 'Encerrar', exact: true }).click()
+  await expect(page.locator('#status')).toHaveText('Partida encerrada')
+})
+test('TC-103: page fits a 320px viewport', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 700 }); await page.goto('/')
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320)
+})

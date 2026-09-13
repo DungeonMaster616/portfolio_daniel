@@ -1,0 +1,190 @@
+name: CI
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  spec:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.14.7'
+      - run: pip install -r scripts/requirements.txt
+      - run: python scripts/validate_specs.py
+      - run: go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
+      - run: $(go env GOPATH)/bin/actionlint
+  frontend:
+    needs: spec
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '26.7.0'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test:ci -- --coverage
+      - run: python ../scripts/check_reports.py reports/unit.xml
+      - run: npm run build
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: frontend-reports
+          path: frontend/reports
+          if-no-files-found: error
+          retention-days: 14
+  backend:
+    needs: spec
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17.11-alpine
+        env:
+          POSTGRES_DB: test_portfolio
+          POSTGRES_USER: portfolio
+          POSTGRES_PASSWORD: ci-only-password
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U portfolio -d test_portfolio"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      POSTGRES_DB: test_portfolio
+      POSTGRES_USER: portfolio
+      POSTGRES_PASSWORD: ci-only-password
+      POSTGRES_HOST: localhost
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.14.7'
+      - run: pip install -r requirements-ci.txt
+      - run: ruff check .
+      - run: ruff format --check .
+      - run: python manage.py check
+      - run: python manage.py makemigrations --check --dry-run
+      - run: python manage.py migrate --noinput
+      - run: pytest --junitxml=reports/junit.xml --cov=games --cov-report=xml:reports/coverage.xml
+      - run: python ../scripts/check_reports.py reports/junit.xml
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: backend-reports
+          path: backend/reports
+          if-no-files-found: error
+          retention-days: 14
+  dependencies:
+    needs: spec
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '26.7.0'
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.14.7'
+      - run: npm ci && npm audit --audit-level=high
+        working-directory: frontend
+      - run: pip install -r backend/requirements-ci.txt
+      - run: pip-audit -r backend/requirements-ci.txt
+  e2e:
+    needs: [frontend, backend]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17.11-alpine
+        env:
+          POSTGRES_DB: e2e_portfolio
+          POSTGRES_USER: portfolio
+          POSTGRES_PASSWORD: ci-only-password
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U portfolio -d e2e_portfolio"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      POSTGRES_DB: e2e_portfolio
+      POSTGRES_USER: portfolio
+      POSTGRES_PASSWORD: ci-only-password
+      POSTGRES_HOST: localhost
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '26.7.0'
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.14.7'
+      - run: pip install -r backend/requirements-ci.txt
+      - run: npm ci
+        working-directory: frontend
+      - run: npx playwright install --with-deps chromium firefox webkit
+        working-directory: frontend
+      - run: npm run test:e2e
+        working-directory: frontend
+      - run: python scripts/check_reports.py frontend/reports/e2e.xml
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: e2e-reports
+          path: |
+            frontend/reports
+            frontend/test-results
+          if-no-files-found: error
+          retention-days: 14
+  ci-gate:
+    if: always()
+    needs: [spec, frontend, backend, dependencies, e2e]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: All required jobs must succeed
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          python - <<'PY'
+          import json, os
+          jobs = json.loads(os.environ['RESULTS'])
+          assert jobs and all(job['result'] == 'success' for job in jobs.values()), jobs
+          PY
+  package:
+    needs: ci-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '26.7.0'
+      - run: npm ci && npm run build
+        working-directory: frontend
+      - run: docker build -t portfolio-backend:${{ github.sha }} backend
+      - run: docker build -t portfolio-frontend:${{ github.sha }} frontend
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: frontend-${{ github.sha }}
+          path: frontend/dist
+          if-no-files-found: error
+          retention-days: 14
