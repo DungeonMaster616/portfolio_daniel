@@ -1,4 +1,4 @@
-import { Snake, type Direction } from './snake'
+import { Snake, type Direction, type Status } from './snake'
 import { Tetris } from './tetris'
 import { BombArena } from './bomb-arena'
 import { api, errorMessage } from './api'
@@ -19,7 +19,7 @@ export function setupPlayground() {
   const canvas = $<HTMLCanvasElement>('board'), context = canvas.getContext('2d')!
   const audio = setupAudio()
   const pending: { run: Run; result: Result; button: HTMLButtonElement; busy: boolean }[] = []
-  let last = performance.now(), lastScore = 0
+  let last = performance.now(), lastScore = 0, lastStatus: Status = 'ready'
   const labels = { ready: 'Pronto para começar', running: 'Em jogo', paused: 'Partida pausada', over: 'Partida encerrada', won: 'Você venceu!' }
   async function abandon(previous: Run | null) {
     if (!previous || previous.finished || previous.abandoned) return
@@ -69,9 +69,21 @@ export function setupPlayground() {
       game.body.forEach((p, i) => drawCell(p.x, p.y, 25, 25, i ? '#79be55' : '#c5ff80'))
       if (game.food) drawCell(game.food.x, game.food.y, 25, 25, '#ffad75')
     } else if (game instanceof Tetris) {
+      // Painel lateral e margem visível delimitando a área horizontal das peças (10 colunas = 250px)
+      context.fillStyle = '#142029'; context.fillRect(250, 0, 250, 500)
+      context.strokeStyle = '#182832'; context.lineWidth = 1
+      for (let col = 1; col < 10; col++) {
+        context.beginPath(); context.moveTo(col * 25, 0); context.lineTo(col * 25, 500); context.stroke()
+      }
+      for (let row = 1; row < 20; row++) {
+        context.beginPath(); context.moveTo(0, row * 25); context.lineTo(250, row * 25); context.stroke()
+      }
       game.board.forEach((row, y) => row.forEach((cell, x) => { if (cell) drawCell(x, y, 25, 25, '#9981d0') }))
       const current = game
       game.piece.forEach((row, y) => row.forEach((cell, x) => { if (cell) drawCell(current.x + x, current.y + y, 25, 25, '#c9b3ff') }))
+      context.strokeStyle = '#b6ef85'; context.lineWidth = 3
+      context.strokeRect(1.5, 1.5, 247, 497)
+      context.fillStyle = '#b6ef85'; context.fillRect(250, 0, 4, 500)
       context.fillStyle = '#e9eef2'; context.font = '16px system-ui'; context.fillText('Próxima peça', 290, 40)
       game.next.forEach((row, y) => row.forEach((cell, x) => { if (cell) drawCell(12 + x, 3 + y, 25, 25, '#b6ef85') }))
       context.fillText('Nível ' + game.level, 290, 220); context.fillText('Linhas ' + game.lines, 290, 250)
@@ -92,12 +104,21 @@ export function setupPlayground() {
     const startLabel = game.status === 'ready' ? 'Iniciar' : 'Reiniciar'
     if ($('pause').textContent !== pauseLabel) $('pause').textContent = pauseLabel
     if ($('start').textContent !== startLabel) $('start').textContent = startLabel
-    if (game.score > lastScore) audio.play()
+    if (game.score > lastScore && game instanceof Snake) audio.food()
     lastScore = game.score
+    if (game.status !== lastStatus) {
+      if (game.status === 'over') {
+        if (game instanceof Snake) audio.gameOver()
+        else audio.stopMusic(true)
+      }
+      else if (game.status === 'running' && !(game instanceof BombArena)) audio.startMusic()
+      else audio.stopMusic(game.status !== 'paused')
+      lastStatus = game.status
+    }
   }
   function select(next: string) {
-    void abandon(run); run = null
-    slug = next; game = slug === 'snake' ? new Snake() : slug === 'tetris' ? new Tetris() : new BombArena()
+    void abandon(run); run = null; audio.stopMusic(true); lastStatus = 'ready'
+    slug = next; audio.setGame(slug); game = slug === 'snake' ? new Snake() : slug === 'tetris' ? new Tetris() : new BombArena()
     const entry = catalog.find(g => g.slug === slug)!
     $('game-title').textContent = 'Vamos jogar ' + entry.name + '.'
     $('instructions').textContent = entry.controls
@@ -109,7 +130,7 @@ export function setupPlayground() {
   $<HTMLSelectElement>('game-select').onchange = event => select((event.target as HTMLSelectElement).value)
   document.querySelectorAll<HTMLAnchorElement>('[data-game]').forEach(link => { link.onclick = () => { select(link.dataset.game!); canvas.focus({ preventScroll: true }) } })
   $('start').onclick = () => {
-    void abandon(run); game.start(); audio.unlock(); last = performance.now()
+    void abandon(run); audio.stopMusic(true); lastStatus = 'ready'; game.start(); audio.unlock(); last = performance.now()
     const current: Run = { slug, abandoned: false, finished: false, duration: 0, revision: accountRevision,
       session: signedIn ? api<{ id: string }>('/game-sessions/', { game: slug, client_version: '1.0.0' }).then(r => r.id).catch(() => {
         if (run === current) $('online-message').textContent = 'Sessão online indisponível. Esta partida será local.'
@@ -124,12 +145,15 @@ export function setupPlayground() {
   $('pause').onclick = pause
   $('end').onclick = () => { void abandon(run); game.end(); $('online-message').textContent = 'Partida encerrada manualmente, sem envio ao ranking.'; draw() }
   function direction(next: Direction) {
+    if (game.status === 'running' && game instanceof Snake) audio.move()
     if (game instanceof Snake) game.turn(next)
     else if (game instanceof BombArena) game.move(next)
     else if (next === 'up') game.rotate(); else if (next === 'down') game.drop(); else game.move(next === 'left' ? -1 : 1)
     finish(); draw()
   }
-  function special() { if (game instanceof Tetris) game.hardDrop(); else if (game instanceof BombArena) game.plant(); finish(); draw() }
+  function special() {
+    if (game instanceof Tetris) game.hardDrop(); else if (game instanceof BombArena) game.plant(); finish(); draw()
+  }
   $('special').onclick = () => { special(); canvas.focus({ preventScroll: true }) }
   const keys: Record<string, Direction> = { ArrowUp: 'up', w: 'up', ArrowDown: 'down', s: 'down', ArrowLeft: 'left', a: 'left', ArrowRight: 'right', d: 'right' }
   canvas.onkeydown = event => {

@@ -2,7 +2,8 @@ import { test, expect } from '@playwright/test'
 test('TC-001 / TC-002: portfolio and guest Snake work without API', async ({ page }) => {
   await page.route('**/api/**', route => route.abort())
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'Código que vira experiência.' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Guarde suas conquistas.' })).toBeVisible()
+  await page.getByRole('link', { name: 'Jogos', exact: true }).click()
   await expect(page.locator('.cards article')).toHaveCount(3)
   await page.getByRole('link', { name: 'Jogar Snake' }).click()
   await page.getByRole('button', { name: 'Iniciar', exact: true }).click()

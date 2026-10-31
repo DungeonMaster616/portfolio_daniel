@@ -3,6 +3,7 @@ import AxeBuilder from '@axe-core/playwright'
 
 test('TC-025 / TC-020: register, play, retry lost finish response, ranking, profile and logout', async ({ page }) => {
   await page.goto('/')
+  await page.getByRole('link', { name: 'Cadastro', exact: true }).click()
   const username = 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)
   await page.getByLabel('Nome de usuário', { exact: true }).fill(username)
   await page.getByLabel('E-mail (para cadastro)').fill(username + '@example.test')
@@ -14,6 +15,7 @@ test('TC-025 / TC-020: register, play, retry lost finish response, ranking, prof
     await route.fetch(); await route.abort()
     await page.unroute('**/game-sessions/*/finish/')
   })
+  await page.getByRole('link', { name: 'Jogos', exact: true }).click()
   await page.getByRole('link', { name: 'Jogar Snake' }).click()
   await page.getByRole('button', { name: 'Iniciar', exact: true }).click()
   await expect(page.locator('#online-message')).toContainText('Sessão online ativa')
@@ -21,9 +23,10 @@ test('TC-025 / TC-020: register, play, retry lost finish response, ranking, prof
   const retry = page.getByRole('button', { name: /Resultado não confirmado/ })
   await expect(retry).toBeEnabled(); await retry.click()
   await expect(page.locator('#results')).toContainText('resultado salvo')
+  await expect(page.locator('#ranking-rows')).toContainText(username)
+  await page.getByRole('link', { name: 'Cadastro', exact: true }).click()
   await expect(page.locator('#records')).toContainText('1 partidas')
   await expect(page.locator('#achievements')).toContainText('Obtida: Primeira partida')
-  await expect(page.locator('#ranking-rows')).toContainText(username)
   await page.getByRole('button', { name: 'Sair da conta' }).click()
   await expect(page.locator('#auth-form')).toBeVisible()
   await expect(page.locator('#profile')).toBeHidden()
@@ -31,7 +34,7 @@ test('TC-025 / TC-020: register, play, retry lost finish response, ranking, prof
 
 for (const game of ['Tetris', 'Bomb Arena']) {
   test('TC-002 / TC-003: guest ' + game + ' starts and pauses without backend', async ({ page }) => {
-    await page.route('**/api/**', route => route.abort()); await page.goto('/')
+    await page.route('**/api/**', route => route.abort()); await page.goto('/#jogos')
     await page.getByRole('link', { name: 'Jogar ' + game }).click()
     await page.getByRole('button', { name: 'Iniciar', exact: true }).click()
     await page.locator('canvas').press('ArrowRight')
@@ -43,14 +46,15 @@ for (const game of ['Tetris', 'Bomb Arena']) {
   })
 }
 test('TC-004: preferences persist and unavailable storage does not prevent play', async ({ page }) => {
-  await page.goto('/'); await page.getByLabel('Ativar sons').check(); await page.reload()
+  await page.goto('/#jogos'); await page.getByLabel('Ativar sons').check(); await page.reload()
   await expect(page.getByLabel('Ativar sons')).toBeChecked()
   await page.addInitScript(() => { Storage.prototype.getItem = () => { throw new Error('Unavailable') }; Storage.prototype.setItem = () => { throw new Error('Unavailable') } })
   await page.reload(); await page.getByRole('button', { name: 'Iniciar', exact: true }).click()
   await expect(page.locator('#status')).toHaveText('Em jogo')
 })
 test('TC-105: automated WCAG AA interface audit', async ({ page }) => {
-  await page.goto('/'); await expect(page.locator('#account-message')).not.toBeEmpty()
+  await page.goto('/#cadastro'); await expect(page.locator('#account-message')).not.toBeEmpty()
+  await page.goto('/')
   const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze()
   expect(results.violations).toEqual([])
   await page.screenshot({ path: 'reports/portfolio.png', fullPage: true })
